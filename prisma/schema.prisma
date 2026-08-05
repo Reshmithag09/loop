@@ -2,6 +2,24 @@
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
 
 // Get a free hosted Postgres database in seconds: `npx create-db`
+enum Role {
+  ADMIN
+  ANALYST
+  VIEWER
+}
+enum Sentiment {
+  POS
+  NEU
+  NEG
+}
+
+enum FeedbackStatus {
+  NEW
+  REVIEWED
+  ACTIONED
+}
+
+
 
 generator client {
   provider = "prisma-client"
@@ -10,4 +28,83 @@ generator client {
 
 datasource db {
   provider = "postgresql"
+
+}
+
+model Workspace {
+  id        String   @id @default(cuid())
+  name      String
+  createdAt DateTime @default(now())
+
+  users     User[]
+  feedback  Feedback[]
+  themes    Theme[]
+  reports   Report[]
+}
+
+model User {
+  id           String   @id @default(cuid())
+  workspaceId  String
+  email        String   @unique
+  passwordHash String
+  name         String
+  role         Role
+  createdAt    DateTime @default(now())
+
+  workspace    Workspace @relation(fields: [workspaceId], references: [id])
+}
+
+model Feedback {
+  id          String           @id @default(cuid())
+  workspaceId String
+  text        String
+  imageUrl    String?
+  sentiment   Sentiment?
+  status      FeedbackStatus   @default(NEW)
+  createdAt   DateTime         @default(now())
+
+  workspace   Workspace @relation(fields: [workspaceId], references: [id])
+  themes      FeedbackTheme[]
+  embedding   Embedding?
+}
+
+model Theme {
+  id          String   @id @default(cuid())
+  workspaceId String
+  name        String
+  description String?
+  color       String?
+  createdAt   DateTime @default(now())
+
+  workspace   Workspace @relation(fields: [workspaceId], references: [id])
+  feedbacks   FeedbackTheme[]
+}
+
+model FeedbackTheme {
+  feedbackId String
+  themeId    String
+  confidence Float
+
+  feedback Feedback @relation(fields: [feedbackId], references: [id])
+  theme    Theme    @relation(fields: [themeId], references: [id])
+
+  @@id([feedbackId, themeId])
+}
+model Embedding {
+  id         String   @id @default(cuid())
+  feedbackId String   @unique
+  vector     String
+  model      String
+  createdAt  DateTime @default(now())
+
+  feedback   Feedback @relation(fields: [feedbackId], references: [id])
+}
+model Report {
+  id          String   @id @default(cuid())
+  workspaceId String
+  title       String
+  content     String
+  createdAt   DateTime @default(now())
+
+  workspace   Workspace @relation(fields: [workspaceId], references: [id])
 }
