@@ -55,17 +55,20 @@ model User {
 }
 
 model Feedback {
-  id          String           @id @default(cuid())
-  workspaceId String
-  text        String
-  imageUrl    String?
-  sentiment   Sentiment?
-  status      FeedbackStatus   @default(NEW)
-  createdAt   DateTime         @default(now())
+  id             String         @id @default(cuid())
+  workspaceId    String
+  content         String @default("")
+  channel         String @default("WEB")
+  sourceRef      String?
+  customerLabel  String?
+  sentiment      Sentiment?
+  sentimentScore Float?
+  status         FeedbackStatus @default(NEW)
+  createdAt      DateTime       @default(now())
 
-  workspace   Workspace @relation(fields: [workspaceId], references: [id])
-  themes      FeedbackTheme[]
-  embedding   Embedding?
+  workspace Workspace @relation(fields: [workspaceId], references: [id])
+  themes   FeedbackTheme[]
+  embedding Embedding?
 }
 
 model Theme {
