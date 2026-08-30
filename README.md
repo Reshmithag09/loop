@@ -1,36 +1,58 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# ✦ LOOP
 
-## Getting Started
+### Turn customer feedback into decisions.
 
-First, run the development server:
+LOOP is an AI-powered, multi-tenant customer feedback intelligence platform that transforms raw customer feedback into meaningful signals, recurring themes, sentiment trends, and actionable workspace insights.
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+> **Collect → Analyze → Understand → Act**
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+---
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## 🎯 Why LOOP?
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Customer feedback is everywhere.
 
-## Learn More
+Emails. Surveys. Support conversations. Social media.
 
-To learn more about Next.js, take a look at the following resources:
+The challenge isn't collecting feedback — it's understanding what that feedback means at scale.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+LOOP creates a continuous feedback intelligence loop that helps teams answer:
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+- **What are customers saying?**
+- **What patterns are emerging?**
+- **How are customers feeling?**
+- **How is the workspace responding?**
+- **What needs attention right now?**
 
-## Deploy on Vercel
+---
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## 🔄 How LOOP Works
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```text
+                    CUSTOMER FEEDBACK
+                           │
+          ┌────────────────┼────────────────┐
+          │                │                │
+         WEB             EMAIL           SURVEY
+          │                │                │
+          └────────────────┼────────────────┘
+                           ▼
+                    ┌─────────────┐
+                    │  AI ANALYSIS │
+                    └──────┬──────┘
+                           │
+              ┌────────────┼────────────┐
+              ▼            ▼            ▼
+         SENTIMENT       THEMES      PATTERNS
+              │            │            │
+              └────────────┼────────────┘
+                           ▼
+                  WORKSPACE SIGNALS
+                           │
+              ┌────────────┼────────────┐
+              ▼            ▼            ▼
+         ENGAGEMENT    RESOLUTION   HEALTH SCORE
+              │            │            │
+              └────────────┼────────────┘
+                           ▼
+                    ACTIONABLE INSIGHTS
