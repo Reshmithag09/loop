@@ -751,14 +751,16 @@ const currentSignal = signals[signal];
       setThemeFeedbackLoading(false);
     }
   }
+  if (typeof document !== "undefined") {
   setTimeout(() => {
-  document
-    .getElementById("theme-feedback-section")
-    ?.scrollIntoView({
-      behavior: "smooth",
-      block: "start",
-    });
-}, 100);
+    document
+      .getElementById("theme-feedback-section")
+      ?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+  }, 100);
+}
 
   /*
    * ==================================================
