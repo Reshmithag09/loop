@@ -393,88 +393,65 @@ export default function DashboardPage() {
   ]);
 
   /*
-   * ==================================================
-   * HEALTH SCORE
-   * ==================================================
-   */
+ * ==================================================
+ * SIGNALS
+ * ==================================================
+ */
 
-  const healthScore = useMemo(() => {
-    if (!dashboardData) {
-      return null;
+const signals = useMemo<Record<Signal, SignalData>>(() => {
+  const metrics = dashboardData?.metrics;
+
+  const sentiment = Number(metrics?.sentimentScore ?? 0);
+  const engagement = Number(metrics?.engagementScore ?? 0);
+  const feedbackCount = Number(metrics?.feedback ?? 0);
+
+  const history = Array.isArray(metrics?.signalHistory)
+    ? metrics.signalHistory
+    : [];
+
+  function createPath(values: number[]): string {
+    const cleanValues = values.filter(
+      (value) => Number.isFinite(value)
+    );
+
+    /*
+     * If the API does not have enough history,
+     * create a visible fallback line using the
+     * current signal value.
+     */
+    if (cleanValues.length < 2) {
+      const value =
+        cleanValues.length === 1
+          ? cleanValues[0]
+          : 50;
+
+      const y =
+        180 -
+        20 -
+        (Math.max(0, Math.min(100, value)) / 100) *
+          (180 - 40);
+
+      return `M 0 ${y} C 120 ${y}, 240 ${y}, 400 ${y}
+              C 560 ${y}, 680 ${y}, 800 ${y}`;
     }
-
-    const {
-      sentimentScore,
-      engagementScore,
-      resolutionScore,
-    } = dashboardData.metrics;
-
-    return Math.round(
-      (
-        sentimentScore +
-        engagementScore +
-        resolutionScore
-      ) / 3
-    );
-  }, [dashboardData]);
-
-  /*
-   * ==================================================
-   * SIGNALS
-   * ==================================================
-   */
-
-  const signals = useMemo<
-  Record<Signal, SignalData>
->(() => {
-  const sentiment =
-    dashboardData?.metrics.sentimentScore ?? 0;
-
-  const engagement =
-    dashboardData?.metrics.engagementScore ?? 0;
-
-  const feedbackCount =
-    dashboardData?.metrics.feedback ?? 0;
-
-  const history =
-    dashboardData?.metrics.signalHistory ?? [];
-
-  const createPath = (
-    values: number[]
-  ): string => {
-    if (values.length === 0) {
-      return EMPTY_SIGNAL_PATH;
-    }
-
-    const maxValue = Math.max(
-      ...values,
-      1
-    );
-
-    const minValue = Math.min(
-      ...values
-    );
-
-    const range = Math.max(
-      maxValue - minValue,
-      1
-    );
 
     const width = 800;
-    const height = 150;
-    const padding = 10;
+    const height = 180;
+    const padding = 20;
 
-    return values
+    const max = Math.max(...cleanValues, 1);
+    const min = Math.min(...cleanValues);
+    const range = Math.max(max - min, 1);
+
+    return cleanValues
       .map((value, index) => {
         const x =
-          values.length === 1
+          cleanValues.length === 1
             ? width / 2
-            : (index /
-                (values.length - 1)) *
-              width;
+            : (index / (cleanValues.length - 1)) * width;
 
         const normalized =
-          (value - minValue) / range;
+          (value - min) / range;
 
         const y =
           height -
@@ -483,22 +460,21 @@ export default function DashboardPage() {
             (height - padding * 2);
 
         if (index === 0) {
-          return `M${x} ${y}`;
+          return `M ${x} ${y}`;
         }
 
         const previousValue =
-          values[index - 1];
-
-        const previousNormalized =
-          (previousValue - minValue) /
-          range;
+          cleanValues[index - 1];
 
         const previousX =
-          values.length === 1
+          cleanValues.length === 1
             ? width / 2
             : ((index - 1) /
-                (values.length - 1)) *
+                (cleanValues.length - 1)) *
               width;
+
+        const previousNormalized =
+          (previousValue - min) / range;
 
         const previousY =
           height -
@@ -509,64 +485,53 @@ export default function DashboardPage() {
         const controlX =
           (previousX + x) / 2;
 
-        return `C${controlX} ${previousY} ${controlX} ${y} ${x} ${y}`;
+        return `C ${controlX} ${previousY},
+                ${controlX} ${y},
+                ${x} ${y}`;
       })
       .join(" ");
-  };
+  }
 
-  const sentimentValues =
-    history.map(
-      (item) => item.sentiment
-    );
+  const sentimentValues = history.map((item) =>
+    Number(item.sentiment)
+  );
 
-  const engagementValues =
-    history.map(
-      (item) => item.engagement
-    );
+  const engagementValues = history.map((item) =>
+    Number(item.engagement)
+  );
 
-  const feedbackValues =
-    history.map(
-      (item) => item.feedback
-    );
+  const feedbackValues = history.map((item) =>
+    Number(item.feedback)
+  );
 
   return {
     Sentiment: {
       value: `${sentiment}%`,
       change: formatChange(
-        dashboardData?.metrics
-          .sentimentChange ?? null
+        metrics?.sentimentChange ?? null
       ),
-      path: createPath(
-        sentimentValues
-      ),
+      path: createPath(sentimentValues),
     },
 
     Engagement: {
       value: `${engagement}%`,
       change: formatChange(
-        dashboardData?.metrics
-          .engagementChange ?? null
+        metrics?.engagementChange ?? null
       ),
-      path: createPath(
-        engagementValues
-      ),
+      path: createPath(engagementValues),
     },
 
     Feedback: {
       value: String(feedbackCount),
       change: formatChange(
-        dashboardData?.metrics
-  .feedbackChange ?? null
+        metrics?.feedbackChange ?? null
       ),
-      path: createPath(
-        feedbackValues
-      ),
+      path: createPath(feedbackValues),
     },
   };
 }, [dashboardData]);
 
-const currentSignal =
-  signals[signal];
+const currentSignal = signals[signal];
 
   /*
    * ==================================================
@@ -679,52 +644,65 @@ const currentSignal =
    */
 
   async function updateFeedbackStatus(
-    feedbackId: string,
-    newStatus: string
-  ) {
-    try {
-      const response = await fetch(
-        `/api/feedback/${feedbackId}`,
-        {
-          method: "PATCH",
-          headers: {
-            "Content-Type":
-              "application/json",
-          },
-          body: JSON.stringify({
-            status: newStatus,
-          }),
-        }
-      );
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(
-          data.error ||
-            "Failed to update feedback status."
-        );
+  feedbackId: string,
+  newStatus: string
+) {
+  try {
+    const response = await fetch(
+      `/api/feedback/${feedbackId}`,
+      {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          status: newStatus,
+        }),
       }
+    );
 
-      setFeedback(
-        (currentFeedback) =>
-          currentFeedback.map(
-            (item) =>
-              item.id === feedbackId
-                ? {
-                    ...item,
-                    status: newStatus,
-                  }
-                : item
-          )
-      );
-    } catch (error) {
-      console.error(
-        "Feedback status update error:",
-        error
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(
+        data.error ||
+          "Failed to update feedback status."
       );
     }
+
+    // Update the feedback item immediately
+    setFeedback((currentFeedback) =>
+      currentFeedback.map((item) =>
+        item.id === feedbackId
+          ? {
+              ...item,
+              status: newStatus,
+            }
+          : item
+      )
+    );
+
+    // Refresh dashboard metrics immediately
+    const dashboardResponse = await fetch(
+      "/api/dashboard",
+      {
+        cache: "no-store",
+      }
+    );
+
+    if (dashboardResponse.ok) {
+      const dashboardData =
+        await dashboardResponse.json();
+
+      setDashboardData(dashboardData);
+    }
+  } catch (error) {
+    console.error(
+      "Feedback status update error:",
+      error
+    );
   }
+}
 
   /*
    * ==================================================
@@ -761,7 +739,8 @@ const currentSignal =
           ? data.feedback
           : []
       );
-    } catch (error) {
+    }
+     catch (error) {
       console.error(
         "Theme feedback error:",
         error
@@ -772,6 +751,14 @@ const currentSignal =
       setThemeFeedbackLoading(false);
     }
   }
+  setTimeout(() => {
+  document
+    .getElementById("theme-feedback-section")
+    ?.scrollIntoView({
+      behavior: "smooth",
+      block: "start",
+    });
+}, 100);
 
   /*
    * ==================================================
@@ -976,8 +963,34 @@ const currentSignal =
    * ==================================================
    */
 
-  const healthMessage =
-    getHealthMessage(healthScore);
+ /*
+ * ==================================================
+ * HEALTH SCORE
+ * ==================================================
+ */
+
+const healthScore = useMemo(() => {
+  if (!dashboardData) {
+    return null;
+  }
+
+  const {
+    sentimentScore,
+    engagementScore,
+    resolutionScore,
+  } = dashboardData.metrics;
+
+  return Math.round(
+    (
+      sentimentScore +
+      engagementScore +
+      resolutionScore
+    ) / 3
+  );
+}, [dashboardData]);
+
+const healthMessage =
+  getHealthMessage(healthScore);
 
   /*
    * ==================================================
@@ -1060,36 +1073,53 @@ const currentSignal =
 
             <nav className="space-y-2">
 
-              <NavItem
-                icon="◈"
-                label="Dashboard"
-                active
-              />
+  <button
+    type="button"
+    onClick={() => {
+      window.scrollTo({
+        top: 0,
+        behavior: "smooth",
+      });
+    }}
+    className="w-full rounded-xl border border-violet-400/20 bg-violet-500/10 px-4 py-3 text-left text-xs font-medium text-violet-200 transition hover:bg-violet-500/20"
+  >
+    Dashboard
+  </button>
 
-              <NavItem
-                icon="◇"
-                label="Feedback"
-              />
+  <button
+    type="button"
+    onClick={() => {
+      document
+        .getElementById("feedback-inbox")
+        ?.scrollIntoView({
+          behavior: "smooth",
+        });
+    }}
+    className="w-full rounded-xl px-4 py-3 text-left text-xs text-white/40 transition hover:bg-white/[0.04] hover:text-white"
+  >
+    Feedback
+  </button>
 
-              <NavItem
-                icon="◎"
-                label="Themes"
-              />
+  <button
+    type="button"
+    onClick={() => {
+      document
+        .getElementById("themes-section")
+        ?.scrollIntoView({
+          behavior: "smooth",
+        });
+    }}
+    className="w-full rounded-xl px-4 py-3 text-left text-xs text-white/40 transition hover:bg-white/[0.04] hover:text-white"
+  >
+    Themes
+  </button>
 
-              <NavItem
-                icon="▱"
-                label="Reports"
-              />
+</nav>
 
-              <NavItem
-                icon="✦"
-                label="Ask LOOP"
-              />
-
-            </nav>
-
-            <div className="mt-auto rounded-2xl border border-white/[0.06] bg-white/[0.02] p-4">
-
+<div
+  id="workspace-profile"
+  className="mt-auto rounded-2xl border border-white/[0.06] bg-white/[0.02] p-4"
+>
               <div className="text-[9px] uppercase tracking-[0.2em] text-white/25">
                 Workspace
               </div>
@@ -1135,20 +1165,41 @@ const currentSignal =
 
               <div className="flex items-center gap-3">
 
-                <div className="hidden rounded-xl border border-white/[0.06] bg-white/[0.025] px-4 py-2 text-xs text-white/30 sm:block">
-                  Search
-                </div>
+  <button
+    type="button"
+    onClick={() => {
+      document
+        .getElementById("feedback-inbox")
+        ?.scrollIntoView({
+          behavior: "smooth",
+        });
+    }}
+    className="hidden rounded-xl border border-white/[0.06] bg-white/[0.025] px-4 py-2 text-xs text-white/50 transition hover:border-violet-400/30 hover:bg-white/[0.05] hover:text-white sm:block"
+  >
+    Search Feedback
+  </button>
 
-                <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-fuchsia-400 to-violet-500 text-xs font-semibold">
-                  {(
-                    dashboardData?.user.name ||
-                    "U"
-                  )
-                    .charAt(0)
-                    .toUpperCase()}
-                </div>
+  <button
+    type="button"
+    onClick={() => {
+      document
+        .getElementById("workspace-profile")
+        ?.scrollIntoView({
+          behavior: "smooth",
+        });
+    }}
+    className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-fuchsia-400 to-violet-500 text-xs font-semibold transition hover:scale-105"
+    title="Workspace profile"
+  >
+    {(
+      dashboardData?.user.name ||
+      "U"
+    )
+      .charAt(0)
+      .toUpperCase()}
+  </button>
 
-              </div>
+</div>
 
             </header>
 
@@ -1515,8 +1566,7 @@ const currentSignal =
 
               </div>
 
-              <div className="relative mt-5 h-48 overflow-hidden rounded-2xl bg-black/15">
-
+<div className="relative z-10 mt-5 h-48 overflow-hidden rounded-2xl bg-black/15">
                 <div className="absolute inset-x-0 top-1/4 border-t border-dashed border-white/[0.04]" />
 
                 <div className="absolute inset-x-0 top-1/2 border-t border-dashed border-white/[0.05]" />
@@ -1524,7 +1574,7 @@ const currentSignal =
                 <div className="absolute inset-x-0 top-3/4 border-t border-dashed border-white/[0.04]" />
 
                 <svg
-                  viewBox="0 0 800 220"
+                  viewBox="0 0 800 180"
                   preserveAspectRatio="none"
                   className="absolute inset-0 h-full w-full"
                 >
@@ -1555,19 +1605,13 @@ const currentSignal =
                   </defs>
 
                   <path
-                    d={currentSignal.path}
-                    fill="none"
-                    stroke="url(#signalGradient)"
-                    strokeWidth="4"
-                    strokeLinecap="round"
-                  />
-
-                  <path
-                    d={`${currentSignal.path} V220 H0 Z`}
-                    fill="url(#signalGradient)"
-                    opacity="0.06"
-                  />
-
+  d={currentSignal.path}
+  fill="none"
+  stroke="#c084fc"
+  strokeWidth="4"
+  strokeLinecap="round"
+  vectorEffect="non-scaling-stroke"
+/>
                 </svg>
 
               </div>
@@ -1888,23 +1932,28 @@ const currentSignal =
 
             {/* ================= FEEDBACK INBOX ================= */}
 
-            <section className="mt-8 rounded-[30px] border border-white/10 bg-white/[0.025] p-5 sm:p-6">
+           {/* ================= FEEDBACK INBOX ================= */}
 
-              <div className="mb-6">
+<section
+  id="feedback-inbox"
+  className="mt-8 rounded-[30px] border border-white/10 bg-white/[0.025] p-5 sm:p-6"
+>
 
-                <p className="text-xs font-semibold uppercase tracking-[0.25em] text-purple-300">
-                  Feedback Inbox
-                </p>
+  <div className="mb-6">
 
-                <h2 className="mt-2 text-2xl font-semibold text-white">
-                  Recent Feedback
-                </h2>
+    <p className="text-xs font-semibold uppercase tracking-[0.25em] text-purple-300">
+      Feedback Inbox
+    </p>
 
-                <p className="mt-1 text-sm text-white/40">
-                  Feedback collected from your workspace.
-                </p>
+    <h2 className="mt-2 text-2xl font-semibold text-white">
+      Recent Feedback
+    </h2>
 
-              </div>
+    <p className="mt-1 text-sm text-white/40">
+      Feedback collected from your workspace.
+    </p>
+
+  </div>
 
               {/* FILTERS */}
 
@@ -2200,13 +2249,10 @@ const currentSignal =
                       <button
                         key={theme.id}
                         type="button"
-                        onClick={() =>
-                          loadThemeFeedback(
-                            theme.id
-                          )
-                        }
-                        className="w-full rounded-2xl border border-white/10 bg-black/20 p-5 text-left transition hover:border-purple-400/30 hover:bg-white/[0.03]"
-                      >
+                        onClick={() => {console.log("THEME CLICKED:", theme.id);
+                        loadThemeFeedback(theme.id);
+}}
+className="relative z-10 w-full cursor-pointer rounded-2xl border border-white/10 bg-black/20 p-5 text-left transition hover:border-purple-400/30 hover:bg-white/[0.03] pointer-events-auto"                      >
 
                         <div className="flex items-start justify-between gap-4">
 
@@ -2238,9 +2284,7 @@ const currentSignal =
 
               {/* THEME FEEDBACK */}
 
-              {selectedTheme && (
-                <div className="mt-6 rounded-2xl border border-purple-400/20 bg-black/20 p-5">
-
+              {selectedTheme && ( <div id="theme-feedback-section" className="mt-6 rounded-2xl border border-purple-400/20 bg-black/20 p-5" >
                   <div className="mb-4 flex items-center justify-between">
 
                     <div>
@@ -2366,17 +2410,19 @@ function NavItem({
   icon,
   label,
   active = false,
+  href,
 }: {
   icon: string;
   label: string;
   active?: boolean;
+  href: string;
 }) {
   return (
-    <button
-      type="button"
+    <a
+      href={href}
       className={`group flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-xs transition duration-300 ${
         active
-          ? "bg-white/[0.07] text-white"
+          ? "bg-white/[0.07] text-white shadow-[inset_0_0_0_1px_rgba(255,255,255,0.06)]"
           : "text-white/35 hover:bg-white/[0.04] hover:text-white/70"
       }`}
     >
@@ -2384,7 +2430,7 @@ function NavItem({
         className={`flex h-6 w-6 items-center justify-center rounded-lg ${
           active
             ? "bg-gradient-to-br from-violet-500/30 to-cyan-400/20 text-violet-200"
-            : "bg-white/[0.025] text-white/30"
+            : "bg-white/[0.025] text-white/30 group-hover:text-white/60"
         }`}
       >
         {icon}
@@ -2393,9 +2439,9 @@ function NavItem({
       <span>{label}</span>
 
       {active && (
-        <span className="ml-auto h-1.5 w-1.5 rounded-full bg-violet-400" />
+        <span className="ml-auto h-1.5 w-1.5 rounded-full bg-violet-400 shadow-[0_0_10px_rgba(167,139,250,0.8)]" />
       )}
-    </button>
+    </a>
   );
 }
 
